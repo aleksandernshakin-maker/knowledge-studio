@@ -1,0 +1,5 @@
+const CACHE='knowledge-studio-final-pdfjs-20260913';
+const CORE=['./','./index.html','./styles.css','./app.js','./db.js','./pdf-basic.js','./zip-lite.js','./search-worker.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./vendor/pdfjs/pdf.mjs','./vendor/pdfjs/pdf.worker.mjs','./vendor/pdfjs/LICENSE'];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url);if(u.origin!==location.origin)return;e.respondWith(caches.match(e.request).then(async r=>{if(r)return r;try{const resp=await fetch(e.request);if(resp.ok){const c=await caches.open(CACHE);c.put(e.request,resp.clone())}return resp}catch(err){if(e.request.mode==='navigate')return caches.match('./index.html');throw err}}))});

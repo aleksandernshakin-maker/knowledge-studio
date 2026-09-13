@@ -1,0 +1,19 @@
+
+const DB_NAME='knowledge-studio'; const DB_VERSION=4;
+let dbp;
+export function uid(prefix='id'){return `${prefix}-${crypto.randomUUID()}`}
+export function now(){return Date.now()}
+export async function db(){if(dbp)return dbp;dbp=new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;const stores=['courses','lessons','topics','documents','assets','pdfSources','sourceAnchors','favorites','recent','trash','settings','revisions'];for(const s of stores)if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id'});};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});return dbp}
+export async function get(store,id){const d=await db();return new Promise((res,rej)=>{const r=d.transaction(store).objectStore(store).get(id);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+export async function all(store){const d=await db();return new Promise((res,rej)=>{const r=d.transaction(store).objectStore(store).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+export async function put(store,val){const d=await db();return new Promise((res,rej)=>{const t=d.transaction(store,'readwrite');t.objectStore(store).put(val);t.oncomplete=()=>res(val);t.onerror=()=>rej(t.error)})}
+export async function del(store,id){const d=await db();return new Promise((res,rej)=>{const t=d.transaction(store,'readwrite');t.objectStore(store).delete(id);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+export async function bulkPut(store,vals){if(!vals.length)return;const d=await db();return new Promise((res,rej)=>{const t=d.transaction(store,'readwrite');const os=t.objectStore(store);for(const v of vals)os.put(v);t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+export async function clear(store){const d=await db();return new Promise((res,rej)=>{const t=d.transaction(store,'readwrite');t.objectStore(store).clear();t.oncomplete=res;t.onerror=()=>rej(t.error)})}
+export async function setting(id,fallback){return (await get('settings',id))?.value ?? fallback}
+export async function setSetting(id,value){return put('settings',{id,value,updatedAt:now()})}
+export async function saveBlob(assetId,blob){if(navigator.storage?.getDirectory){const root=await navigator.storage.getDirectory();const dir=await root.getDirectoryHandle('knowledge-studio',{create:true});const fh=await dir.getFileHandle(assetId,{create:true});const w=await fh.createWritable();await w.write(blob);await w.close();return {backend:'opfs',path:assetId}}const buf=await blob.arrayBuffer();await put('assets',{id:assetId,kind:'binary-fallback',blob:new Blob([buf],{type:blob.type}),createdAt:now()});return {backend:'idb',path:assetId}}
+export async function loadBlob(assetId){if(navigator.storage?.getDirectory){try{const root=await navigator.storage.getDirectory();const dir=await root.getDirectoryHandle('knowledge-studio');const fh=await dir.getFileHandle(assetId);return await fh.getFile()}catch(e){}}const a=await get('assets',assetId);return a?.blob||null}
+export async function deleteBlob(assetId){if(navigator.storage?.getDirectory){try{const root=await navigator.storage.getDirectory();const dir=await root.getDirectoryHandle('knowledge-studio');await dir.removeEntry(assetId)}catch(e){}}}
+export async function snapshotDocument(doc,reason='auto'){const rev={id:uid('rev'),documentId:doc.id,reason,createdAt:now(),data:structuredClone(doc)};await put('revisions',rev);const allr=(await all('revisions')).filter(x=>x.documentId===doc.id).sort((a,b)=>b.createdAt-a.createdAt);for(const r of allr.slice(12))await del('revisions',r.id)}
+export async function exportRaw(){const names=['courses','lessons','topics','documents','pdfSources','sourceAnchors','favorites','recent','trash','settings','revisions'];const out={};for(const n of names)out[n]=await all(n);return out}
