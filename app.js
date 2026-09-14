@@ -232,7 +232,7 @@ async function addDemo(){if(state.courses.some(c=>c.title==='DeFi — демон
 function setupSW(){
  if(!('serviceWorker' in navigator))return;
  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>{
-  const offer=()=>{if(!registration.waiting||document.querySelector('#update-release'))return;const button=document.createElement('button');button.id='update-release';button.className='btn release-update';button.textContent='Обновление готово · применить';button.onclick=()=>runSafe(async()=>{await flushEditor();navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});registration.waiting.postMessage({type:'ACTIVATE_UPDATE'});});document.body.append(button);};
+  const offer=()=>{if(!registration.waiting||document.querySelector('#update-release'))return;const button=document.createElement('button');button.id='update-release';button.className='btn release-update';button.textContent='Обновление готово · применить';button.onclick=()=>runSafe(async()=>{await flushEditor();navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});const waiting=registration.waiting;if(waiting)waiting.postMessage({type:'ACTIVATE_UPDATE'});else location.reload();});document.body.append(button);};
   offer();registration.addEventListener('updatefound',()=>{registration.installing?.addEventListener('statechange',offer);});
   registration.update().catch(()=>{});
  }).catch(error=>toast('Offline-кэш пока недоступен: '+error.message));
