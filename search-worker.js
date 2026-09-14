@@ -1,2 +1,16 @@
-
-let docs=[];self.onmessage=e=>{const {type,payload}=e.data;if(type==='INDEX'){docs=payload||[];postMessage({type:'READY',count:docs.length})}if(type==='SEARCH'){const q=(payload||'').trim().toLocaleLowerCase('ru');if(!q){postMessage({type:'RESULTS',results:[]});return}const terms=q.split(/\s+/);let res=[];for(const d of docs){const hay=(d.title+' '+d.course+' '+d.lesson+' '+d.body).toLocaleLowerCase('ru');let score=0;for(const t of terms){if(d.title.toLocaleLowerCase('ru').includes(t))score+=8;const c=(hay.match(new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'))||[]).length;score+=c}if(score){let i=hay.indexOf(terms[0]);res.push({...d,score,snippet:d.body.slice(Math.max(0,i-80),Math.max(0,i-80)+220)})}}res.sort((a,b)=>b.score-a.score);postMessage({type:'RESULTS',results:res.slice(0,80)})}}
+let docs=[];
+self.onmessage=event=>{
+ const {type,payload}=event.data;
+ if(type==='INDEX'){docs=payload||[];postMessage({type:'READY',count:docs.length});return;}
+ if(type!=='SEARCH')return;
+ const terms=(payload||'').trim().toLocaleLowerCase('ru').split(/\s+/).filter(Boolean);
+ if(!terms.length){postMessage({type:'RESULTS',results:[]});return;}
+ const results=[];
+ for(const doc of docs){
+  const title=doc.title.toLocaleLowerCase('ru'),body=doc.body.toLocaleLowerCase('ru'),hay=[title,doc.course,doc.lesson,body].join(' ').toLocaleLowerCase('ru');
+  if(!terms.every(term=>hay.includes(term)))continue;
+  const score=terms.reduce((n,term)=>n+(title.includes(term)?8:0)+hay.split(term).length-1,0),at=Math.max(0,...terms.map(term=>body.indexOf(term))),start=Math.max(0,at-70);
+  results.push({...doc,score,snippet:(start?'…':'')+doc.body.slice(start,start+220)});
+ }
+ results.sort((a,b)=>b.score-a.score);postMessage({type:'RESULTS',results});
+};
